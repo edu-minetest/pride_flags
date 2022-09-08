@@ -339,11 +339,17 @@ local function spawn_flag_and_set_texture( pos )
 	return flag
 end
 
+local function is_protected(pos, playerName)
+	if minetest.is_protected( pos, playerName ) and not
+			minetest.check_player_privs( playerName, "protection_bypass") then
+		minetest.register_protection_violation( pos, playerName )
+		return true
+	end
+end
+
 local function cycle_flag( pos, player, cycle_backwards )
 	local pname = player:get_player_name( )
-	if minetest.is_protected( pos, pname ) and not
-			minetest.check_player_privs( pname, "protection_bypass") then
-		minetest.register_protection_violation( pos, pname )
+	if is_protected( pos, pname ) then
 		return
 	end
 
@@ -356,7 +362,9 @@ local function cycle_flag( pos, player, cycle_backwards )
 	end
 	if flag then
 		local flag_name
-		if cycle_backwards then
+		if type(cycle_backwards) == "string" then
+			flag_name = flag:reset_texture( cycle_backwards )
+		elseif cycle_backwards then
 			flag_name = flag:reset_texture( nil, -1 )
 		else
 			flag_name = flag:reset_texture( nil, 1 )
@@ -365,6 +373,34 @@ local function cycle_flag( pos, player, cycle_backwards )
 		meta:set_string("flag_name", flag_name)
 	else
 		spawn_flag_and_set_texture( pos )
+	end
+end
+
+local function genFormspec(currentFlagName)
+	local flagImgs = {}
+	local flagItems = {}
+	local currentIndex = 0
+	for i, v in ipairs(flag_list) do
+		table.insert(flagImgs, string.format("%d=prideflag_%s.png", i-1, v))
+		table.insert(flagItems, i-1)
+		table.insert(flagItems, v)
+		if v == currentFlagName then currentIndex = i end
+	end
+	local result = "formspec_version[4]" ..
+		"size[5,5]" ..
+		"tablecolumns[image,align=left,width=1.2," .. table.concat(flagImgs, ",") ..";text]" ..
+		"table[0,0;5,4;flags;" .. table.concat(flagItems, ",") ..";" .. currentIndex .. "]" ..
+		"field[0.1,4.2;1.6,0.4;name;".. S("Flag Name") .. ";]" ..
+		"button_exit[3.8,4.2;1,0.4;btnOk;".. S("Ok") .. "]"
+	return result
+end
+
+local function after_place_node(pos, placer)
+	local pname = placer:get_player_name()
+	if #flag_list > 40 and not is_protected(pos, pname) then
+		local meta = minetest.get_meta(pos)
+		local currentFlagName = meta:get_string("flag_name")
+		meta:set_string("formspec", genFormspec(currentFlagName))
 	end
 end
 
@@ -391,11 +427,11 @@ minetest.register_node( "pride_flags:upper_mast", {
         },
 
 	on_rightclick = function ( pos, node, player )
-		cycle_flag( pos, player )
+		if #flag_list <= 40 then cycle_flag( pos, player ) end
 	end,
 
 	on_punch = function ( pos, node, player )
-		cycle_flag( pos, player, -1 )
+		if #flag_list <= 40 then cycle_flag( pos, player, -1 ) end
 	end,
 
 	node_placement_prediction = "",
@@ -465,6 +501,7 @@ minetest.register_node( "pride_flags:upper_mast", {
 
 		local def = minetest.registered_nodes["pride_flags:upper_mast"]
 		minetest.sound_play(def.sounds.place, {pos = pos}, true)
+		after_place_node(pos, placer)
 
 		return itemstack
 	end,
@@ -517,6 +554,37 @@ minetest.register_node( "pride_flags:upper_mast", {
 			flag_pos = get_flag_pos( flag_pos, new_param2 )
 			rotate_flag_by_param2( aflag, new_param2 )
 			aflag:set_pos( flag_pos )
+		end
+	end,
+
+	on_receive_fields = function(pos, formname, fields, player)
+		local name = fields.name
+		if name then
+			for _, v in ipairs(flag_list) do
+				if v == name then
+					cycle_flag(pos, player, v)
+					local meta = minetest.get_meta( pos )
+					meta:set_string("formspec", genFormspec(v))
+					return
+				end
+			end
+		end
+
+		if fields.quit then
+				return
+		end
+
+		local flags = fields.flags
+		if flags then
+			local event = minetest.explode_table_event(flags)
+			if event.type == "CHG" then
+				local flagName = flag_list[event.row]
+				if flagName then
+					cycle_flag(pos, player, flagName)
+					local meta = minetest.get_meta( pos )
+					meta:set_string("formspec", genFormspec(flagName))
+				end
+			end
 		end
 	end,
 } )
