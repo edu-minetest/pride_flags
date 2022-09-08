@@ -25,7 +25,8 @@ local rad_90 = pi / 2
 local DEFAULT_FLAG = "rainbow"
 
 -- Flag list for the old number-based storing of flags, used up to
--- 8fd4f9661e123bc84c0499c4809537e8aeb24c3b. Do not change this list!
+-- 8fd4f9661e123bc84c0499c4809537e8aeb24c3b.
+-- DO NOT CHANGE THIS LIST!
 local legacy_flag_list = {
 	"rainbow", "lesbian", "bisexual", "transgender", "genderqueer", "nonbinary", "pansexual", "asexual",
 	"vincian", "polysexual", "omnisexual", "graysexual", "demisexual", "homoromantic", "biromantic",
@@ -34,8 +35,9 @@ local legacy_flag_list = {
 	"genderfluid", "intersex", "polyamorous", "queer", "demigirl", "demiboy", "bigender", "trigender",
 }
 local flag_list = {
-	-- rainbow flag / LGBT+ Pride flag / Gay Pride flag
-	"rainbow",
+	-- broader community
+	"rainbow", -- rainbow flag / LGBTQ+ Pride flag / Gay Pride flag
+	"progress", -- Progress Pride
 	-- orientations (general)
 	"lesbian", "vincian",
 	-- sexual orientations
@@ -111,6 +113,18 @@ else
 	S = function(s) return s end
 end
 
+-- Delete entity if there is no flag mast node
+local delete_if_orphan = function( self )
+	local pos = self.object:get_pos( )
+	local node = minetest.get_node({x=pos.x,y=pos.y-1,z=pos.z})
+	if node.name ~= "pride_flags:upper_mast" and node.name ~= "ignore" then
+		minetest.log("action", "[pride_flags] Orphan flag entity removed at "..minetest.pos_to_string(pos, 1))
+		self.object:remove( )
+		return true
+	end
+	return false
+end
+
 minetest.register_entity( "pride_flags:wavingflag", {
 	initial_properties = {
 		physical = false,
@@ -125,6 +139,10 @@ minetest.register_entity( "pride_flags:wavingflag", {
 	},
 
 	on_activate = function ( self, staticdata, dtime )
+		if delete_if_orphan( self) then
+			return
+		end
+		-- Init stuff
 		self:reset_animation( true )
 		self.object:set_armor_groups( { immortal = 1 } )
 
@@ -178,6 +196,9 @@ minetest.register_entity( "pride_flags:wavingflag", {
 		self.anim_timer = self.anim_timer - dtime
 
 		if self.anim_timer <= 0 then
+			if delete_if_orphan( self) then
+				return
+			end
 			self:reset_animation( )
 		end
 	end,
@@ -500,7 +521,9 @@ minetest.register_node( "pride_flags:upper_mast", {
 		end
 
 		local def = minetest.registered_nodes["pride_flags:upper_mast"]
-		minetest.sound_play(def.sounds.place, {pos = pos}, true)
+		if def and def.sounds then
+			minetest.sound_play(def.sounds.place, {pos = pos}, true)
+		end
 		after_place_node(pos, placer)
 
 		return itemstack
