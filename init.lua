@@ -409,7 +409,7 @@ local function genFormspec(currentFlagName)
 	end
 	local result = "formspec_version[4]" ..
 		"size[5,5]" ..
-		"tablecolumns[image,align=left,width=1.2," .. table.concat(flagImgs, ",") ..";text]" ..
+		"tablecolumns[image,width=1.2," .. table.concat(flagImgs, ",") ..";text]" ..
 		"table[0,0;5,4;flags;" .. table.concat(flagItems, ",") ..";" .. currentIndex .. "]" ..
 		"field[0.1,4.2;1.6,0.4;name;".. S("Flag Name") .. ";]" ..
 		"button_exit[3.8,4.2;1,0.4;btnOk;".. S("Ok") .. "]"
