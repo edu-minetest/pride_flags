@@ -1,3 +1,5 @@
-# textdomain:pride_flags
+# textdomain: pride_flags
 Flag Pole=
+Flag Name=
+Ok=
 Flag Pole with Flag=
